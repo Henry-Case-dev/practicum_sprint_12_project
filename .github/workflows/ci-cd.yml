@@ -3,32 +3,42 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ "main" ]
-    create:
-      tags:
-        - v*
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: golang:1.22
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run tests
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.4'
+      - name: Build
+        run: go build -v ./...
+      - name: Test
         run: go test -v ./...
 
-      - name: Vet
-        run: go vet ./...
-
   deploy:
+    needs: test
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     steps:
       - name: Debug information
         run: |
-            echo "GitHub ref: ${{ github.ref }}"
-            echo "Is this a tag? ${{ startsWith(github.ref, 'refs/tags/') }}"    
+          echo "GitHub ref: ${{ github.ref }}"
+          echo "GitHub event name: ${{ github.event_name }}"
+          echo "Is this a tag? ${{ startsWith(github.ref, 'refs/tags/') }}"
+          echo "Full GitHub context:"
+          echo '${{ toJson(github) }}'
+
       - uses: actions/checkout@v4
+
+      - name: List files
+        run: ls -la
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,7 +53,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/parcel-tracker
+          images: ${{ secrets.DOCKER_USERNAME }}/practicum_sprint_12_project
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
