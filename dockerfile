@@ -4,7 +4,10 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 
-RUN go mod download
+# Установить прокси на случай проблем с зависимостями
+ENV GOPROXY=https://proxy.golang.org,direct
+
+RUN go clean -modcache && go mod download || { echo "go mod download failed with exit code $?"; exit 1; }
 
 COPY . .
 
